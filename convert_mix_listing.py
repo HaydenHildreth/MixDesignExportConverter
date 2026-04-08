@@ -1,8 +1,8 @@
 """
 convert_mix_listing.py
 author Hayden Hildreth
-version 0.1.3
-revision date 04/07/2026
+version 0.1.4
+revision date 04/08/2026
 
 Convert CommandAlkon's commandBATCH mix design listing into a nice
 and readable format which can be imported into Keystone.
@@ -107,10 +107,10 @@ def write_output(mixes, path):
     for mix in mixes:
         name = mix['name']
 
-        # Write ingredient rows only -- no header or Name: rows
+        # Write ingredient to excel, rows only -- no header or Name: rows
         for (ingredient, amount, ing_unit) in mix['ingredients']:
-            ws.write(out_row, 0, name + PLANT_SEPARATOR)
-            ws.write(out_row, 1, ingredient + PLANT_SEPARATOR)
+            ws.write(out_row, 0, (name + PLANT_SEPARATOR).upper())
+            ws.write(out_row, 1, (ingredient + PLANT_SEPARATOR).upper())
             ws.write(out_row, 2, ing_unit)
             ws.write(out_row, 3, amount)
             out_row += 1
