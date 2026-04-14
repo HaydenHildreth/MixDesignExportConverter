@@ -1,6 +1,6 @@
-# commandBATCHtoKeystoneConverter
+# command_convert_mixes.py
 
-Program name: convert_mix_listing.py
+Program name: command_convert_mixes.py
 
 Author: Hayden Hildreth
 
