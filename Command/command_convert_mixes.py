@@ -1,8 +1,8 @@
 """
-convert_mix_listing.py
+command_conver_mixes.py
 author Hayden Hildreth
-version 0.1.4
-revision date 04/08/2026
+version 0.1.5
+revision date 04/14/2026
 
 Convert CommandAlkon's commandBATCH mix design listing into a nice
 and readable format which can be imported into Keystone.
@@ -14,7 +14,7 @@ Output:
   Excel Column D (col 3): Amount 
 
 Usage:
-  python convert_mix_listing.py [input.xls] [output.xls] [plant_separator]
+  python command_convert_mixes.py [input.xls] [output.xls] [plant_separator]
 
 Defaults (these are used if script is ran without parameters at runtime):
   input  = MixListing.xls
