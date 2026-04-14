@@ -1,10 +1,10 @@
 """
-convert_mix_listing_v2.py
+sysdyne_convert_mixes.py
 author Hayden Hildreth
 version 0.1.0
 revision date 04/14/2026
 
-Convert new vendor's mix design export (xlsx, one mix per row) into a nice
+Convert Sysdynes's batch mix design export into a nice
 and readable format which can be imported into Keystone.
 
 Input format:
@@ -24,8 +24,8 @@ Usage:
   python convert_mix_listing_v2.py [input.xlsx] [output.xlsx] [plant_separator]
 
 Defaults (these are used if script is ran without parameters at runtime):
-  input  = new_vendor_export.xlsx
-  output = MixListingEdit_converted_v2.xlsx
+  input  = sysdyne_export.xlsx
+  output = sysdyne_export_converted.xlsx
   plant_separator = ""
 """
 
@@ -37,14 +37,14 @@ INPUT           = sys.argv[1] if len(sys.argv) > 1 else "new_vendor_export.xlsx"
 OUTPUT          = sys.argv[2] if len(sys.argv) > 2 else "MixListingEdit_converted_v2.xlsx"
 PLANT_SEPARATOR = sys.argv[3] if len(sys.argv) > 3 else ""
 
-MAX_MATERIALS = 16  # Vendor supports up to 16 material slots per mix
+MAX_MATERIALS = 16  # MAX AMOUNT OF MATERIALS ALOTTED FOR THEIR EXPORT
 
 
 def parse_mixes(path):
     """
     Read new vendor xlsx into a list of mix dicts:
       { 'name': str, 'ingredients': [(name, amount_str, unit), ...] }
-    Skips ingredients where the name is empty or amount is 0.
+    SKIP INGREDIENT WHERE AMOUNT IS ZERO OR NULL OR EMPTY!!
     """
     df = pd.read_excel(path, dtype=str)
 
@@ -72,7 +72,7 @@ def parse_mixes(path):
             except (ValueError, TypeError):
                 amount_f = 0.0
 
-            # Skip zero-amount ingredients
+            # Skip zero (amount) ingredients
             if amount_f == 0.0:
                 continue
 
@@ -90,7 +90,7 @@ def write_output(mixes, path):
     ws = wb.active
     ws.title = "Sheet1"
 
-    out_row = 1  # openpyxl is 1-indexed
+    out_row = 1  # openpyxl is 1-indexed so I set to 1
 
     for mix in mixes:
         name = mix['name']
