@@ -1,0 +1,35 @@
+# mpaq_lookup.csv -- Ingredient ID - Name lookup table for mpaq_convert_mixes.py,,
+#,,
+# Format (3-column, recommended):,
+#   ID , TYPE , NAME
+#   TYPE is one of: AGG (aggregate), CEM (cementitious), ADM (admixture)
+#,,
+# The same numeric ID can belong to different types (e.g. Agg ID 1 and Cem ID 1,,
+# are different materials), so using the 3-column format avoids collisions.,
+#,,
+# Delete the leading '#' comment lines before use, or leave them in the script,
+# ignores blank/comment lines automatically.,,
+#,,
+# Replace the placeholder names below with your actual material names.,,
+# -----------------------------------------------------------------------,,
+# AGG (Aggregate) IDs -- replace right-hand names with your material names,,
+1,AGG,FILL AGGREGATE NAME HERE
+2,AGG,FILL AGGREGATE NAME HERE
+3,AGG,FILL AGGREGATE NAME HERE
+4,AGG,FILL AGGREGATE NAME HERE
+5,AGG,FILL AGGREGATE NAME HERE
+8,AGG,FILL AGGREGATE NAME HERE
+9,AGG,FILL AGGREGATE NAME HERE
+10,AGG,FILL AGGREGATE NAME HERE
+# CEM (Cementitious) IDs,,
+1,CEM,FILL CEMENT NAME HERE
+2,CEM,FILL CEMENT NAME HERE
+3,CEM,FILL CEMENT NAME HERE
+4,CEM,FILL CEMENT NAME HERE
+# ADM (Admixture) IDs,,
+1,ADM,FILL ADMIXTURE NAME HERE
+2,ADM,FILL ADMIXTURE NAME HERE
+3,ADM,FILL ADMIXTURE NAME HERE
+4,ADM,FILL ADMIXTURE NAME HERE
+5,ADM,FILL ADMIXTURE NAME HERE
+UF1L,ADM,FILL ADMIXTURE NAME HERE
