@@ -1,7 +1,7 @@
 """
 mpaq_convert_mixes.py
 author Hayden Hildreth
-version 0.1.1
+version 0.1.2
 revision date 05/22/2026
 
 Convert MPAQ's mix design CSV export into a format importable into Keystone.
@@ -87,7 +87,7 @@ def parse_mixes(path):
             if amount_f == 0.0:
                 continue
 
-            ingredients.append((str(mat_id).strip(), f"{amount_f:.3f}", "lb"))
+            ingredients.append((str(mat_id).strip(), f"{amount_f:.3f}", "LB"))
 
         # --- Cements (LB) ---
         for n in range(1, MAX_CEM + 1):
@@ -105,7 +105,7 @@ def parse_mixes(path):
             if amount_f == 0.0:
                 continue
 
-            ingredients.append((str(mat_id).strip(), f"{amount_f:.3f}", "lb"))
+            ingredients.append((str(mat_id).strip(), f"{amount_f:.3f}", "LB"))
 
         # --- Admixtures (OZ) ---
         for n in range(1, MAX_ADM + 1):
@@ -123,7 +123,7 @@ def parse_mixes(path):
             if amount_f == 0.0:
                 continue
 
-            ingredients.append((str(mat_id).strip(), f"{amount_f:.3f}", "oz"))
+            ingredients.append((str(mat_id).strip(), f"{amount_f:.3f}", "OZ"))
 
         # --- Water (GAL -> LB) ---
         water_gal_raw = row.get("WATER GALLONS", None)
@@ -133,7 +133,7 @@ def parse_mixes(path):
             water_gal = 0.0
 
         if water_gal > 0.0:
-            ingredients.append(("WATER", f"{water_gal:.3f}", "gal"))
+            ingredients.append(("WATER", f"{water_gal:.3f}", "GL"))
 
         if ingredients:
             mixes.append({"name": mix_name, "ingredients": ingredients})
