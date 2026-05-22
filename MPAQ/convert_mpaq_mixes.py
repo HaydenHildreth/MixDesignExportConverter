@@ -9,7 +9,7 @@ Convert MPAQ's mix design CSV export into a format importable into Keystone.
 Input format (CSV, one mix per row):
   MixId          - Mix ID code
   Name           - Mix design name
-  WATER GALLONS  - Water amount (gallons); converted to LB in output (x 8.34)
+  WATER GALLONS  - Water amount (gallons)
   Agg1ID / Agg1Target  } repeating group (up to 6 aggregates)
   Cem1ID / Cem1Target  } repeating group (up to 3 cements)
   Adm1ID / Adm1Target  } repeating group (up to 8 admixtures)
