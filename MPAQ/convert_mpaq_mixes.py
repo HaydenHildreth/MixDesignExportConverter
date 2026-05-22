@@ -1,276 +1,178 @@
 """
 mpaq_convert_mixes.py
-author  Hayden Hildreth
+author Hayden Hildreth
 version 0.1.0
-revision date 05/19/2026
+revision date 05/22/2026
 
-Convert MPAQ's mix design CSV export into the flat, row-per-ingredient
-format that can be imported into Keystone.
+Convert MPAQ's mix design CSV export into a format importable into Keystone.
 
-MPAQ stores every ingredient as a numeric ID (Agg1ID, Cem1ID, Adm1ID, …)
-so you must supply a lookup file that maps those IDs to ingredient names.
-A sample lookup CSV is shown in the Usage section below.
+Input format (CSV, one mix per row):
+  MixId          - Mix ID code
+  Name           - Mix design name
+  WATER GALLONS  - Water amount (gallons); converted to LB in output (x 8.34)
+  Agg1ID / Agg1Target  } repeating group (up to 6 aggregates)
+  Cem1ID / Cem1Target  } repeating group (up to 3 cements)
+  Adm1ID / Adm1Target  } repeating group (up to 8 admixtures)
 
-Output columns:
-  Column A (col 0): Mix Design Name  (MixId value, uppercased)
-  Column B (col 1): Ingredient name  (from lookup, or auto-generated)
-  Column C (col 2): Unit             (LB for agg/cem/water, OZ for admixtures)
-  Column D (col 3): Amount           (formatted to 3 decimal places)
+Unit assumptions (MPAQ stores no explicit unit per ingredient):
+  Aggregates   -> LB
+  Cements      -> LB
+  Admixtures   -> OZ
+  Water        -> LB (converted from GAL via * 8.34)
+
+Output format (5 columns, matching Keystone import spec):
+  Column A (col 0): Mix Design Name
+  Column B (col 1): Ingredient name
+  Column C (col 2): (empty)
+  Column D (col 3): Amount  (3 decimal places)
+  Column E (col 4): Unit (LB / OZ)
 
 Usage:
-  python mpaq_convert_mixes.py [input.csv] [output.xlsx] [lookup.csv] [plant_separator]
+  python mpaq_convert_mixes.py [input.csv] [output.xls] [plant_separator]
 
-Arguments:
-  input.csv         – MPAQ mix design export  (default: mpaq_export.csv)
-  output.xlsx       – Desired output file      (default: mpaq_converted.xlsx)
-  lookup.csv        – Ingredient ID lookup     (default: mpaq_lookup.csv)
-  plant_separator   – Optional suffix appended to every mix/ingredient name
-                      (default: "")
-
-Lookup file format (CSV, no header required, columns = ID, Name):
-  1,SAND 2
-  2,1 STONE
-  3,PEASTONE
-  ...
-
-  Separate lookups per material type are supported via an optional third
-  column containing the type abbreviation (AGG, CEM, ADM).  If the third
-  column is absent the same table is used for all types:
-  1,AGG,SAND 2
-  1,CEM,HEIDELBERG
-  1,ADM,AIRALON
-
-  If no lookup file exists (or a particular ID is not found) the script
-  falls back to auto-generated names like AGG_1, CEM_2, ADM_3 so the
-  output is still usable.
-
-Water:
-  WaterTarget is always written as a WATER / LB row when the value is
-  non-zero.  MPAQ stores water separately from the numbered ingredient
-  slots so no lookup entry is needed.
-
-Units:
-  Aggregates  → LB
-  Cementitious → LB
-  Water        → LB
-  Admixtures   → OZ  (industry convention; override via lookup if needed)
+Defaults (used if script is run without parameters at runtime):
+  input           = mpaq_export.csv
+  output          = mpaq_converted.xls
+  plant_separator = ""
 """
 
 import sys
-import os
-import csv
 import pandas as pd
-import openpyxl
+import xlwt
 
-# ---------------------------------------------------------------------------
-# Command-line defaults
-# ---------------------------------------------------------------------------
 INPUT           = sys.argv[1] if len(sys.argv) > 1 else "mpaq_export.csv"
-OUTPUT          = sys.argv[2] if len(sys.argv) > 2 else "mpaq_converted.xlsx"
-LOOKUP_FILE     = sys.argv[3] if len(sys.argv) > 3 else "mpaq_lookup.csv"
-PLANT_SEPARATOR = sys.argv[4] if len(sys.argv) > 4 else ""
+OUTPUT          = sys.argv[2] if len(sys.argv) > 2 else "mpaq_converted.xls"
+PLANT_SEPARATOR = sys.argv[3] if len(sys.argv) > 3 else ""
 
-# ---------------------------------------------------------------------------
-# Material slot definitions
-# ---------------------------------------------------------------------------
-AGG_SLOTS = 6   # Agg1 … Agg6
-CEM_SLOTS = 3   # Cem1 … Cem3
-ADM_SLOTS = 8   # Adm1 … Adm8
+# MPAQ water column is in gallons; 1 US gallon of water = 8.34 lb
+GALLONS_TO_LB = 8.34
 
-# Default units per material type
-UNIT_AGG   = "LB"
-UNIT_CEM   = "LB"
-UNIT_WATER = "LB"
-UNIT_ADM   = "OZ"
+# CONSTANTS
+MAX_AGG = 6
+MAX_CEM = 3
+MAX_ADM = 8
 
 
-# ---------------------------------------------------------------------------
-# Lookup table loader
-# ---------------------------------------------------------------------------
-def load_lookup(path):
+def parse_mixes(path):
     """
-    Return a dict keyed by (type, id_str) -> ingredient_name.
-    type is one of 'AGG', 'CEM', 'ADM', or '*' (wildcard / any type).
-
-    Accepted CSV formats (auto-detected by column count):
-      2-col:  id, name          → stored under key ('*', id)
-      3-col:  id, type, name    → stored under key (type.upper(), id)
-              OR
-              type, id, name    → same, order detected by whether col0 is alpha
-    """
-    lookup = {}
-    if not os.path.isfile(path):
-        print(f"[WARN] Lookup file '{path}' not found – using auto-generated names.")
-        return lookup
-
-    with open(path, newline="", encoding="utf-8-sig") as f:
-        reader = csv.reader(f)
-        for lineno, row in enumerate(reader, 1):
-            row = [c.strip() for c in row]
-            if not row or all(c == "" for c in row):
-                continue
-            if len(row) == 2:
-                id_str, name = row[0], row[1]
-                lookup[("*", id_str)] = name
-            elif len(row) >= 3:
-                # Detect column order: if first token is alphabetic it's the type
-                if row[0].isalpha():
-                    typ, id_str, name = row[0].upper(), row[1], row[2]
-                else:
-                    id_str, typ, name = row[0], row[1].upper(), row[2]
-                lookup[(typ, id_str)] = name
-            else:
-                print(f"[WARN] Lookup line {lineno} skipped (unexpected format): {row}")
-
-    print(f"Loaded {len(lookup)} lookup entries from '{path}'.")
-    return lookup
-
-
-def resolve_name(lookup, mat_type, raw_id):
-    """
-    Look up (mat_type, id) then fall back to ('*', id) then to auto-name.
-    raw_id is cast to string; float IDs like 1.0 are normalised to '1'.
-    """
-    # Normalise float IDs (e.g. 1.0 -> '1')
-    try:
-        id_str = str(int(float(raw_id)))
-    except (ValueError, TypeError):
-        id_str = str(raw_id).strip()
-
-    name = (
-        lookup.get((mat_type, id_str))
-        or lookup.get(("*", id_str))
-        or f"{mat_type}_{id_str}"
-    )
-    return name
-
-
-# ---------------------------------------------------------------------------
-# Parser
-# ---------------------------------------------------------------------------
-def parse_mixes(path, lookup):
-    """
-    Read the MPAQ CSV and return a list of mix dicts:
-      { 'name': str, 'ingredients': [(name, amount_str, unit), ...] }
+    Read MPAQ CSV into a list of mix dicts:
+      {
+        'name': str,
+        'ingredients': [(name, amount_str, unit), ...]
+      }
+    Skips ingredients where the ID is empty or the target amount is zero.
+    Ingredient order: Aggregates -> Cements -> Admixtures -> Water.
     """
     df = pd.read_csv(path, dtype=str)
-
-    # Coerce numeric columns
-    numeric_cols = (
-        ["WaterTarget"]
-        + [f"Agg{n}ID"     for n in range(1, AGG_SLOTS + 1)]
-        + [f"Agg{n}Target" for n in range(1, AGG_SLOTS + 1)]
-        + [f"Cem{n}ID"     for n in range(1, CEM_SLOTS + 1)]
-        + [f"Cem{n}Target" for n in range(1, CEM_SLOTS + 1)]
-        + [f"Adm{n}Target" for n in range(1, ADM_SLOTS + 1)]
-    )
-    for col in numeric_cols:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors="coerce")
 
     mixes = []
 
     for _, row in df.iterrows():
-        mix_id = str(row.get("MixId", "")).strip()
-
-        # Skip blank or header-like rows
-        if not mix_id or mix_id == "0" or mix_id.lower() == "mixid":
+        mix_name = str(row.get("Name", "")).strip()
+        if not mix_name or mix_name == "nan":
             continue
 
         ingredients = []
 
-        # -- Aggregates -------------------------------------------------------
-        for n in range(1, AGG_SLOTS + 1):
-            agg_id  = row.get(f"Agg{n}ID")
-            agg_amt = row.get(f"Agg{n}Target")
-            if pd.isna(agg_id) or pd.isna(agg_amt):
-                continue
-            try:
-                amt_f = float(agg_amt)
-            except (ValueError, TypeError):
-                continue
-            if amt_f == 0:
-                continue
-            name = resolve_name(lookup, "AGG", agg_id)
-            ingredients.append((name, f"{amt_f:.3f}", UNIT_AGG))
+        # --- Aggregates (LB) ---
+        for n in range(1, MAX_AGG + 1):
+            mat_id  = row.get(f"Agg{n}ID",     None)
+            mat_amt = row.get(f"Agg{n}Target", None)
 
-        # -- Cementitious -----------------------------------------------------
-        for n in range(1, CEM_SLOTS + 1):
-            cem_id  = row.get(f"Cem{n}ID")
-            cem_amt = row.get(f"Cem{n}Target")
-            if pd.isna(cem_id) or pd.isna(cem_amt):
+            if pd.isna(mat_id) or str(mat_id).strip() == "" or str(mat_id).strip() == "nan":
                 continue
-            try:
-                amt_f = float(cem_amt)
-            except (ValueError, TypeError):
-                continue
-            if amt_f == 0:
-                continue
-            name = resolve_name(lookup, "CEM", cem_id)
-            ingredients.append((name, f"{amt_f:.3f}", UNIT_CEM))
 
-        # -- Admixtures -------------------------------------------------------
-        for n in range(1, ADM_SLOTS + 1):
-            adm_id  = row.get(f"Adm{n}ID")
-            adm_amt = row.get(f"Adm{n}Target")
-            if pd.isna(adm_id) or adm_id == "":
-                continue
-            if pd.isna(adm_amt):
-                continue
             try:
-                amt_f = float(adm_amt)
+                amount_f = float(mat_amt) if not pd.isna(mat_amt) else 0.0
             except (ValueError, TypeError):
-                continue
-            if amt_f == 0:
-                continue
-            name = resolve_name(lookup, "ADM", adm_id)
-            ingredients.append((name, f"{amt_f:.3f}", UNIT_ADM))
+                amount_f = 0.0
 
-        # -- Water ------------------------------------------------------------
-        water_amt = row.get("WaterTarget")
+            if amount_f == 0.0:
+                continue
+
+            ingredients.append((str(mat_id).strip(), f"{amount_f:.3f}", "LB"))
+
+        # --- Cements (LB) ---
+        for n in range(1, MAX_CEM + 1):
+            mat_id  = row.get(f"Cem{n}ID",     None)
+            mat_amt = row.get(f"Cem{n}Target", None)
+
+            if pd.isna(mat_id) or str(mat_id).strip() == "" or str(mat_id).strip() == "nan":
+                continue
+
+            try:
+                amount_f = float(mat_amt) if not pd.isna(mat_amt) else 0.0
+            except (ValueError, TypeError):
+                amount_f = 0.0
+
+            if amount_f == 0.0:
+                continue
+
+            ingredients.append((str(mat_id).strip(), f"{amount_f:.3f}", "LB"))
+
+        # --- Admixtures (OZ) ---
+        for n in range(1, MAX_ADM + 1):
+            mat_id  = row.get(f"Adm{n}ID",     None)
+            mat_amt = row.get(f"Adm{n}Target", None)
+
+            if pd.isna(mat_id) or str(mat_id).strip() == "" or str(mat_id).strip() == "nan":
+                continue
+
+            try:
+                amount_f = float(mat_amt) if not pd.isna(mat_amt) else 0.0
+            except (ValueError, TypeError):
+                amount_f = 0.0
+
+            if amount_f == 0.0:
+                continue
+
+            ingredients.append((str(mat_id).strip(), f"{amount_f:.3f}", "OZ"))
+
+        # --- Water (GAL -> LB) ---
+        water_gal_raw = row.get("WATER GALLONS", None)
         try:
-            water_f = float(water_amt)
+            water_gal = float(water_gal_raw) if not pd.isna(water_gal_raw) else 0.0
         except (ValueError, TypeError):
-            water_f = 0.0
-        if water_f != 0:
-            ingredients.append(("WATER", f"{water_f:.3f}", UNIT_WATER))
+            water_gal = 0.0
+
+        if water_gal > 0.0:
+            water_lb = water_gal * GALLONS_TO_LB
+            ingredients.append(("WATER", f"{water_lb:.3f}", "LB"))
 
         if ingredients:
-            mixes.append({"name": mix_id, "ingredients": ingredients})
+            mixes.append({"name": mix_name, "ingredients": ingredients})
 
     return mixes
 
 
-# ---------------------------------------------------------------------------
-# Writer
-# ---------------------------------------------------------------------------
 def write_output(mixes, path):
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Sheet1"
+    """
+    Write mixes to a .xls file matching the Keystone import format:
+      Col A: Mix name  |  Col B: Ingredient  |  Col C: (empty)  |  Col D: Amount  |  Col E: Unit
+    """
+    wb = xlwt.Workbook()
+    ws = wb.add_sheet("Sheet1")
 
-    out_row = 1  # openpyxl is 1-indexed
+    out_row = 0
 
     for mix in mixes:
         name = (mix["name"] + PLANT_SEPARATOR).upper()
+
         for (ingredient, amount, unit) in mix["ingredients"]:
-            ws.cell(out_row, 1, name)
-            ws.cell(out_row, 2, (ingredient + PLANT_SEPARATOR).upper())
-            ws.cell(out_row, 3, unit.upper())
-            ws.cell(out_row, 4, amount)
+            ws.write(out_row, 0, name)
+            ws.write(out_row, 1, ingredient.upper())
+            # Column C intentionally left empty (col index 2)
+            ws.write(out_row, 3, float(amount))
+            ws.write(out_row, 4, unit)
             out_row += 1
 
     wb.save(path)
-    print(f"Written {out_row - 1} rows across {len(mixes)} mixes -> {path}")
+    print(f"Written {out_row} rows across {len(mixes)} mixes -> {path}")
 
 
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    print(f"Parsing '{INPUT}' ...")
-    lookup = load_lookup(LOOKUP_FILE)
-    mixes  = parse_mixes(INPUT, lookup)
+    print(f"Parsing {INPUT} ...")
+    mixes = parse_mixes(INPUT)
     print(f"Found {len(mixes)} mix designs.")
     if PLANT_SEPARATOR:
         print(f"Using plant separator: {repr(PLANT_SEPARATOR)}")
