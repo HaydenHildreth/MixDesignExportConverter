@@ -18,14 +18,14 @@ Unit assumptions (MPAQ stores no explicit unit per ingredient):
   Aggregates   -> LB
   Cements      -> LB
   Admixtures   -> OZ
-  Water        -> GAL
+  Water        -> GL
 
 Output format (5 columns, matching Keystone import spec):
   Column A (col 0): Mix Design Name
   Column B (col 1): Ingredient name
   Column C (col 2): (empty)
   Column D (col 3): Amount  (3 decimal places)
-  Column E (col 4): Unit (LB / OZ)
+  Column E (col 4): Unit (LB / OZ / GL)
 
 Usage:
   python mpaq_convert_mixes.py [input.csv] [output.xls] [plant_separator]
