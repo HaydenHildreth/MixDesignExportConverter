@@ -1,7 +1,7 @@
 """
 mpaq_convert_mixes.py
 author Hayden Hildreth
-version 0.1.0
+version 0.1.1
 revision date 05/22/2026
 
 Convert MPAQ's mix design CSV export into a format importable into Keystone.
@@ -18,7 +18,7 @@ Unit assumptions (MPAQ stores no explicit unit per ingredient):
   Aggregates   -> LB
   Cements      -> LB
   Admixtures   -> OZ
-  Water        -> LB (converted from GAL via * 8.34)
+  Water        -> GAL
 
 Output format (5 columns, matching Keystone import spec):
   Column A (col 0): Mix Design Name
@@ -43,9 +43,6 @@ import xlwt
 INPUT           = sys.argv[1] if len(sys.argv) > 1 else "mpaq_export.csv"
 OUTPUT          = sys.argv[2] if len(sys.argv) > 2 else "mpaq_converted.xls"
 PLANT_SEPARATOR = sys.argv[3] if len(sys.argv) > 3 else ""
-
-# MPAQ water column is in gallons; 1 US gallon of water = 8.34 lb
-GALLONS_TO_LB = 8.34
 
 # CONSTANTS
 MAX_AGG = 6
@@ -90,7 +87,7 @@ def parse_mixes(path):
             if amount_f == 0.0:
                 continue
 
-            ingredients.append((str(mat_id).strip(), f"{amount_f:.3f}", "LB"))
+            ingredients.append((str(mat_id).strip(), f"{amount_f:.3f}", "lb"))
 
         # --- Cements (LB) ---
         for n in range(1, MAX_CEM + 1):
@@ -108,7 +105,7 @@ def parse_mixes(path):
             if amount_f == 0.0:
                 continue
 
-            ingredients.append((str(mat_id).strip(), f"{amount_f:.3f}", "LB"))
+            ingredients.append((str(mat_id).strip(), f"{amount_f:.3f}", "lb"))
 
         # --- Admixtures (OZ) ---
         for n in range(1, MAX_ADM + 1):
@@ -126,7 +123,7 @@ def parse_mixes(path):
             if amount_f == 0.0:
                 continue
 
-            ingredients.append((str(mat_id).strip(), f"{amount_f:.3f}", "OZ"))
+            ingredients.append((str(mat_id).strip(), f"{amount_f:.3f}", "oz"))
 
         # --- Water (GAL -> LB) ---
         water_gal_raw = row.get("WATER GALLONS", None)
@@ -136,8 +133,7 @@ def parse_mixes(path):
             water_gal = 0.0
 
         if water_gal > 0.0:
-            water_lb = water_gal * GALLONS_TO_LB
-            ingredients.append(("WATER", f"{water_lb:.3f}", "LB"))
+            ingredients.append(("WATER", f"{water_gal:.3f}", "gal"))
 
         if ingredients:
             mixes.append({"name": mix_name, "ingredients": ingredients})
