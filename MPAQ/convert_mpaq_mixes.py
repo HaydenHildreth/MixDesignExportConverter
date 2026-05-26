@@ -8,7 +8,7 @@ Convert MPAQ's mix design CSV export into a format importable into Keystone.
 
 Input format (CSV, one mix per row):
   MixId          - Mix ID code
-  WATER GALLONS  - Water amount (gallons); converted to LB in output (x 8.34)
+  WATER GALLONS  - Water amount (gallons)
   Agg1ID / Agg1Target  } repeating group (up to 6 aggregates)
   Cem1ID / Cem1Target  } repeating group (up to 3 cements)
   Adm1ID / Adm1Target  } repeating group (up to 8 admixtures)
@@ -85,7 +85,7 @@ def parse_mixes(path):
             if amount_f == 0.0:
                 continue
 
-            ingredients.append((str(mat_id).strip(), f"{amount_f:.3f}", "lb"))
+            ingredients.append((str(mat_id).strip(), f"{amount_f:.3f}", "LB"))
 
         # --- Cements (LB) ---
         for n in range(1, MAX_CEM + 1):
@@ -103,7 +103,7 @@ def parse_mixes(path):
             if amount_f == 0.0:
                 continue
 
-            ingredients.append((str(mat_id).strip(), f"{amount_f:.3f}", "lb"))
+            ingredients.append((str(mat_id).strip(), f"{amount_f:.3f}", "LB"))
 
         # --- Admixtures (OZ) ---
         for n in range(1, MAX_ADM + 1):
@@ -121,7 +121,7 @@ def parse_mixes(path):
             if amount_f == 0.0:
                 continue
 
-            ingredients.append((str(mat_id).strip(), f"{amount_f:.3f}", "oz"))
+            ingredients.append((str(mat_id).strip(), f"{amount_f:.3f}", "OZ"))
 
         # --- Water (GAL) ---
         water_gal_raw = row.get("WATER GALLONS", None)
@@ -131,7 +131,7 @@ def parse_mixes(path):
             water_gal = 0.0
 
         if water_gal > 0.0:
-            ingredients.append(("WATER", f"{water_gal:.3f}", "gal"))
+            ingredients.append(("WATER", f"{water_gal:.3f}", "GL"))
 
         if ingredients:
             mixes.append({"name": mix_name, "ingredients": ingredients})
