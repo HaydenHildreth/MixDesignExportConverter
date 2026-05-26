@@ -1,15 +1,14 @@
 """
 mpaq_convert_mixes.py
 author Hayden Hildreth
-version 0.1.3
-revision date 05/22/2026
+version 0.1.4
+revision date 05/26/2026
 
 Convert MPAQ's mix design CSV export into a format importable into Keystone.
 
 Input format (CSV, one mix per row):
   MixId          - Mix ID code
-  Name           - Mix design name
-  WATER GALLONS  - Water amount (gallons)
+  WATER GALLONS  - Water amount (gallons); converted to LB in output (x 8.34)
   Agg1ID / Agg1Target  } repeating group (up to 6 aggregates)
   Cem1ID / Cem1Target  } repeating group (up to 3 cements)
   Adm1ID / Adm1Target  } repeating group (up to 8 admixtures)
@@ -18,14 +17,14 @@ Unit assumptions (MPAQ stores no explicit unit per ingredient):
   Aggregates   -> LB
   Cements      -> LB
   Admixtures   -> OZ
-  Water        -> GL
+  Water        -> GAL (kept as-is from export)
 
 Output format (5 columns, matching Keystone import spec):
-  Column A (col 0): Mix Design Name
+  Column A (col 0): Mix Design ID
   Column B (col 1): Ingredient name
   Column C (col 2): (empty)
   Column D (col 3): Amount  (3 decimal places)
-  Column E (col 4): Unit (LB / OZ / GL)
+  Column E (col 4): Unit (LB / OZ)
 
 Usage:
   python mpaq_convert_mixes.py [input.csv] [output.xls] [plant_separator]
@@ -44,7 +43,6 @@ INPUT           = sys.argv[1] if len(sys.argv) > 1 else "mpaq_export.csv"
 OUTPUT          = sys.argv[2] if len(sys.argv) > 2 else "mpaq_converted.xls"
 PLANT_SEPARATOR = sys.argv[3] if len(sys.argv) > 3 else ""
 
-# CONSTANTS
 MAX_AGG = 6
 MAX_CEM = 3
 MAX_ADM = 8
@@ -65,7 +63,7 @@ def parse_mixes(path):
     mixes = []
 
     for _, row in df.iterrows():
-        mix_name = str(row.get("Name", "")).strip()
+        mix_name = str(row.get("MixId", "")).strip()
         if not mix_name or mix_name == "nan":
             continue
 
@@ -87,7 +85,7 @@ def parse_mixes(path):
             if amount_f == 0.0:
                 continue
 
-            ingredients.append((str(mat_id).strip(), f"{amount_f:.3f}", "LB"))
+            ingredients.append((str(mat_id).strip(), f"{amount_f:.3f}", "lb"))
 
         # --- Cements (LB) ---
         for n in range(1, MAX_CEM + 1):
@@ -105,7 +103,7 @@ def parse_mixes(path):
             if amount_f == 0.0:
                 continue
 
-            ingredients.append((str(mat_id).strip(), f"{amount_f:.3f}", "LB"))
+            ingredients.append((str(mat_id).strip(), f"{amount_f:.3f}", "lb"))
 
         # --- Admixtures (OZ) ---
         for n in range(1, MAX_ADM + 1):
@@ -123,9 +121,9 @@ def parse_mixes(path):
             if amount_f == 0.0:
                 continue
 
-            ingredients.append((str(mat_id).strip(), f"{amount_f:.3f}", "OZ"))
+            ingredients.append((str(mat_id).strip(), f"{amount_f:.3f}", "oz"))
 
-        # --- Water (GL) ---
+        # --- Water (GAL -> LB) ---
         water_gal_raw = row.get("WATER GALLONS", None)
         try:
             water_gal = float(water_gal_raw) if not pd.isna(water_gal_raw) else 0.0
@@ -133,7 +131,7 @@ def parse_mixes(path):
             water_gal = 0.0
 
         if water_gal > 0.0:
-            ingredients.append(("WATER", f"{water_gal:.3f}", "GL"))
+            ingredients.append(("WATER", f"{water_gal:.3f}", "gal"))
 
         if ingredients:
             mixes.append({"name": mix_name, "ingredients": ingredients})
@@ -144,7 +142,7 @@ def parse_mixes(path):
 def write_output(mixes, path):
     """
     Write mixes to a .xls file matching the Keystone import format:
-      Col A: Mix name  |  Col B: Ingredient  |  Col C: (empty)  |  Col D: Amount  |  Col E: Unit
+      Col A: Mix ID  |  Col B: Ingredient  |  Col C: (empty)  |  Col D: Amount  |  Col E: Unit
     """
     wb = xlwt.Workbook()
     ws = wb.add_sheet("Sheet1")
