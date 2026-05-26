@@ -17,14 +17,14 @@ Unit assumptions (MPAQ stores no explicit unit per ingredient):
   Aggregates   -> LB
   Cements      -> LB
   Admixtures   -> OZ
-  Water        -> GAL (kept as-is from export)
+  Water        -> GL
 
 Output format (5 columns, matching Keystone import spec):
   Column A (col 0): Mix Design ID
   Column B (col 1): Ingredient name
   Column C (col 2): (empty)
   Column D (col 3): Amount  (3 decimal places)
-  Column E (col 4): Unit (LB / OZ)
+  Column E (col 4): Unit (LB / OZ / GL)
 
 Usage:
   python mpaq_convert_mixes.py [input.csv] [output.xls] [plant_separator]
@@ -123,7 +123,7 @@ def parse_mixes(path):
 
             ingredients.append((str(mat_id).strip(), f"{amount_f:.3f}", "oz"))
 
-        # --- Water (GAL -> LB) ---
+        # --- Water (GAL) ---
         water_gal_raw = row.get("WATER GALLONS", None)
         try:
             water_gal = float(water_gal_raw) if not pd.isna(water_gal_raw) else 0.0
