@@ -16,17 +16,11 @@ Input format (XLSX, header on row 3, data from row 4):
   Subsequent ingredient rows have NaN in 'Item Code' and inherit the current mix context.
   
   Columns of interest:
-  
     Item Code                     - Mix design code
-    
     Description                   - Mix design description (col B in output)
-    
     Location                      - Plant number, appended to mix code in col A
-    
     Constituent Short Description - Ingredient name
-    
     Quantity                      - Amount
-    
     Unit of Measure               - Unit (ga -> GL, others uppercased)
 
   The input file also contains a secondary sheet ('Sheet1') with a list of mix codes
@@ -69,23 +63,16 @@ Defaults (used if script is run without parameters at runtime):
 Arguments:
 
   plant_separator   - String appended to the very end of the mix code in col A.
-  
-                      Matches the convention used in command_convert_mixes.py and
-                      
+                      Matches the convention used in command_convert_mixes.py and          
                       mpaq_convert_mixes.py.
                       
   product_separator - String inserted between the Item Code and the plant number
-  
-                      from the Location column.
-                      
-                      Example: product_separator="-" -> "100SLHP-01"
-                      
-                      If omitted, the plant number is still appended with no
-                      
+                      from the Location column.              
+                      Example: product_separator="-" -> "100SLHP-01"          
+                      If omitted, the plant number is still appended with no        
                       separator: "100SLHP01"
 
 Notes:
-
   - Ingredients with a zero or blank quantity are skipped.
   - Unit 'ga' is normalized to 'GL' to match Keystone convention; all units uppercased.
   - Each unique Item Code + Location combination becomes its own group in the output.
